@@ -1,0 +1,127 @@
+* {
+	box-sizing: border-box;
+}
+
+body, html {
+	background: #F4F4F4;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+#app {
+	display: flex;
+	font: 15px monospace;
+	flex-direction: column;
+	height: 100%;
+}
+
+#app h1 {
+	background: #DDD;
+	font-size: 100%;
+	margin: 0;
+	order: 2;
+	padding: 1em;
+	text-align: center;
+}
+
+#app h1:before {
+	content: "↓ ";
+}
+
+#app h1:after {
+	content: " ↓";
+}
+
+#text-version {
+	display: flex;
+	flex-basis: 0;
+	flex-direction: row;
+	flex-grow: 1;
+	justify-content: center;
+	order: 1;
+	padding: 1em 100px;
+
+	textarea {
+		font-size: 100%;
+		width: 100%;
+	}
+}
+
+#visual-version {
+	display: flex;
+	flex-basis: 0;
+	flex-grow: 2;
+	order: 3;
+	padding: 2em 1em 1em 1em;
+
+	#weekdays {
+		display: flex;
+		flex: 1;
+		flex-direction: row;
+	}
+
+	#hourbar {
+		flex: 0 0 5em;
+		margin: 0;
+		padding: 0;
+		position: relative;
+
+		li {
+			display: block;
+			line-height: 1em;
+			list-style-type: none;
+			padding-right: 1ex;
+			position: absolute;
+			text-align: right;
+			width: 100%;
+		}
+	}
+
+	.weekday {
+		flex-basis: 0;
+		flex-grow: 1;
+		position: relative;
+
+		h2 {
+			font-size: .8em;
+			font-weight: bold;
+			line-height: 2em;
+			margin: 0;
+			padding: 0;
+			position: absolute;
+			text-align: center;
+			top: -2em;
+			width: 100%;
+		}
+
+		.event {
+			background: #DDD;
+			border: 1px solid #BBB;
+			box-shadow: 0 5px 5px rgba(0, 0, 0, 0.1);
+			left: 5px;
+			padding: 5px;
+			position: absolute;
+			// FIXME
+			width: calc(100% - 10px); 
+		}
+
+		#nowline {
+			background: #B66;
+			display: block;
+			min-height: 1px;
+			position: absolute;
+			width: 100%; 
+		}
+	}
+
+	.weekday.current h2 {
+		text-decoration: underline;
+	}
+}
+
+@media only screen and (max-device-width: 600px) {
+	.weekday:not(.current) {
+		display: none;
+	}
+}

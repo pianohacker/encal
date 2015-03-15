@@ -6,7 +6,8 @@
     "broccoli": "^0.15.0",
     "broccoli-babel-transpiler": "^4.0.1",
     "broccoli-merge-trees": "^0.2.1",
-    "broccoli-sass": "^0.4.0"
+    "broccoli-sass": "^0.4.0",
+    "broccoli-static-compiler": "^0.2.1"
   },
   "x-modeline": "# vim: set sw=2 ts=2 :"
 }
