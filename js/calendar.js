@@ -264,7 +264,7 @@ export var VisualVersion = React.createClass({
 		var span = li.max_end - li.min_start;
 
 		for (var hm = li.min_start; hm <= li.max_end; hm += 60) {
-			var pos = Math.min(Math.floor(height * (hm - li.min_start) / span) + offset, height - S.HOUR_LINE.WIDTH / 2 - offset);
+			var pos = Math.min(Math.floor(height * (hm - li.min_start) / span) + offset, height - S.HOUR_LINE.WIDTH / 2);
 
 			ctx.moveTo(left, pos);
 			ctx.lineTo(width, pos);

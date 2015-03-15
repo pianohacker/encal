@@ -10,7 +10,7 @@ var App = React.createClass({
 	render: function() {
 		return (
 			<div id="app">
-				<h1>uncal</h1>
+				<h1>encal</h1>
 				<calendar.TextVersion onEventsChanged={this.onEventsChanged} />
 				<calendar.VisualVersion events={this.state.events} />
 			</div>

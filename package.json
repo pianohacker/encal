@@ -1,5 +1,5 @@
 {
-  "name": "uncal",
+  "name": "encal",
   "version": "0.1.0",
   "devDependencies": {
     "babel": "^4.7.3",

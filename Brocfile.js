@@ -9,6 +9,6 @@ var scripts = pickFiles(babel('js', {
 	srcDir: '/',
 	destDir: '/assets'
 });
-var styles = sass(['scss'], 'uncal.scss', 'assets/uncal.css');
+var styles = sass(['scss'], 'encal.scss', 'assets/encal.css');
 
 module.exports = mergeTrees(['static', scripts, styles]);
