@@ -11,39 +11,36 @@ body, html {
 
 #app {
 	display: flex;
-	font: 15px monospace;
-	flex-direction: column;
+	font: 15px "Bitter";
+	flex-direction: row;
 	height: 100%;
-}
-
-#app h1 {
-	background: #DDD;
-	font-size: 100%;
-	margin: 0;
-	order: 2;
-	padding: 1em;
-	text-align: center;
-}
-
-#app h1:before {
-	content: "↓ ";
-}
-
-#app h1:after {
-	content: " ↓";
 }
 
 #text-version {
 	display: flex;
 	flex-basis: 0;
-	flex-direction: row;
+	flex-direction: column;
 	flex-grow: 1;
 	justify-content: center;
 	order: 1;
-	padding: 1em 100px;
+	padding: 1em;
+
+	h1 {
+		background: #E8E8E8;
+		font-size: 1.1em;
+		margin: 0 {
+			bottom: .5em;
+		}
+		line-height: 3em;
+		text-align: center;
+	}
 
 	textarea {
-		font-size: 100%;
+		background: #FAFAFA;
+		border: 1px solid #DDD;
+		padding: .5em;
+		flex-grow: 1;
+		font: inherit;
 		width: 100%;
 	}
 }
@@ -51,9 +48,9 @@ body, html {
 #visual-version {
 	display: flex;
 	flex-basis: 0;
-	flex-grow: 2;
+	flex-grow: 3;
 	order: 3;
-	padding: 2em 1em 1em 1em;
+	padding: 5em 1em 2em 1em;
 
 	#weekdays {
 		display: flex;
@@ -62,7 +59,7 @@ body, html {
 	}
 
 	#hourbar {
-		flex: 0 0 5em;
+		flex: 0 0 6ex;
 		margin: 0;
 		padding: 0;
 		position: relative;
@@ -71,9 +68,9 @@ body, html {
 			display: block;
 			line-height: 1em;
 			list-style-type: none;
-			padding-right: 1ex;
 			position: absolute;
-			text-align: right;
+			right: 0;
+			text-align: center;
 			width: 100%;
 		}
 	}
@@ -83,24 +80,32 @@ body, html {
 		flex-grow: 1;
 		position: relative;
 
-		h2 {
-			font-size: .8em;
-			font-weight: bold;
-			line-height: 2em;
-			margin: 0;
-			padding: 0;
+		hgroup {
 			position: absolute;
-			text-align: center;
-			top: -2em;
+			top: -4em;
 			width: 100%;
+
+			h2, h3 {
+				color: #444;
+				font-size: .9em;
+				font-weight: normal;
+				line-height: 2em;
+				margin: 0;
+				padding: 0;
+				text-align: center;
+			}
+
+			h3 {
+				font-size: .75em;
+			}
 		}
 
 		.event {
-			background: #DDD;
+			background: #F8F8F8;
 			border: 1px solid #BBB;
-			box-shadow: 0 5px 5px rgba(0, 0, 0, 0.1);
+			box-shadow: 0 3px 3px rgba(0, 0, 0, 0.2), 0 0 5px rgba(0, 0, 0, 0.1);
 			left: 5px;
-			padding: 5px;
+			padding: .5em;
 			position: absolute;
 			// FIXME
 			width: calc(100% - 10px); 
@@ -113,10 +118,11 @@ body, html {
 			position: absolute;
 			width: 100%; 
 		}
-	}
 
-	.weekday.current h2 {
-		text-decoration: underline;
+		&.current h2 {
+			color: black;
+			font-weight: bold;
+		}
 	}
 }
 

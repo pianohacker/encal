@@ -16,17 +16,8 @@ function parsePart(event, part) {
 
 function parseEvent(text) {
 	var event = {};
-	var semicolon_parts = text.split(/("[^"]+"|;)/);
-	var semicolon_detected = false;
-	for (var part of semicolon_parts) {
-		if (part == ';') semicolon_detected = true;
-	}
 
-	if (semicolon_detected) {
-		for (var part of semicolon_parts) parsePart(event, part);
-	} else {
-		for (var part of text.split(/("[^"]+"|,)/)) parsePart(event, part);
-	}
+	for (var part of text.split(/("[^"]+"|,)/)) parsePart(event, part);
 
 	if (event.extraParts) {
 		event.title = event.extraParts.join(', ');
@@ -128,7 +119,8 @@ export var TextVersion = React.createClass({
 	render: function() {
 		return (
 			<section id="text-version">
-				<textarea ref="textarea" value={this.state.value} onChange={this.onChange} onKeyUp={this.onKeyUp} />
+				<h1>encal</h1>
+				<textarea ref="textarea" value={this.state.value} onChange={this.onChange} onKeyUp={this.onKeyUp} placeholder="Enter events here..." />
 			</section>
 		);
 	},
@@ -143,7 +135,7 @@ function padNum(num, len) {
 }
 
 function dateFromDT(dateTime) {
-	return `${padNum(dateTime.getFullYear(), 4)}-${padNum(dateTime.getMonth(), 2)}-${padNum(dateTime.getDate(), 2)}`;
+	return `${padNum(dateTime.getFullYear(), 4)}-${padNum(dateTime.getMonth() + 1, 2)}-${padNum(dateTime.getDate(), 2)}`;
 }
 
 function hmFromDT(dateTime) {
@@ -151,15 +143,25 @@ function hmFromDT(dateTime) {
 }
 
 function hmToTime(hm) {
-	return padNum(hm / 60 | 0, 2) + padNum(hm % 60, 2);
+	return padNum((hm / 60 | 0) % 24, 2) + padNum(hm % 60, 2);
 }
 
-function dTMod(dateTime, amount, unit) {
+function dTAdd(dateTime, amount, unit) {
 	var d = new Date(dateTime.valueOf());
 
 	unit = unit[0].toUpperCase() + unit.substr(1);
 
 	d['set' + unit](d['get' + unit]() + amount);
+
+	return d;
+}
+
+function dTMod(dateTime, value, unit) {
+	var d = new Date(dateTime.valueOf());
+
+	unit = unit[0].toUpperCase() + unit.substr(1);
+
+	d['set' + unit](value);
 
 	return d;
 }
@@ -187,38 +189,42 @@ const S = {
 export var VisualVersion = React.createClass({
 	renderWeekdays: function(events) {
 		var now = new Date();
+		var cur_wday = now.getDay();
 		
 		var today = dateFromDT(now);
 
-		var weekdays = {};
-		weekdays[today] = now.getDay();
+		var shown_days = [];
+		var date_map = {};
 
-		for (var diff = -1; now.getDay() + diff >= 0; diff--) weekdays[dateFromDT(dTMod(now, diff, 'date'))] = now.getDay() + diff;
-		for (var diff = 1; now.getDay() + diff <= 6; diff++) weekdays[dateFromDT(dTMod(now, diff, 'date'))] = now.getDay() + diff;
+		for (var diff = -cur_wday; now.getDay() + diff < 7; diff++) {
+			var date = dateFromDT(dTAdd(now, diff, 'date'));
+			var day = {date, weekday: now.getDay() + diff, events: []};
+			shown_days.push(day);
+			date_map[date] = day;
+		}
 
-		var weekday_contents = new Array(7);
-		for (var i = 0; i < 7; i++) weekday_contents[i] = [];
-
-		var min_start = 1440, max_end = 0; 
+		var cur_hour_start = Math.floor(hmFromDT(now) / 60) * 60;
+		var min_start = Math.max(0, cur_hour_start - 60);
+		var max_end = Math.min(1440, cur_hour_start + 120); 
 
 		for (var event of events) {
 			var eventDate = dateFromDT(event.start.dateTime);
-			var weekday = weekdays[eventDate];
+			var day = date_map[eventDate];
 
-			if (weekday == null) continue;
+			if (day == null) continue;
 
-			weekday_contents[weekday].push(event);
+			day.events.push(event);
 
 			min_start = Math.min(min_start, hmFromDT(event.start.dateTime));
 			max_end = Math.max(max_end, hmFromDT(event.end.dateTime));
 		}
 
-		for (var i = 0; i < 7; i++) weekday_contents[i].sort((a, b) => { return a.start.dateTime.valueOf() - b.start.dateTime.valueOf(); });
+		for (day of shown_days) day.events.sort((a, b) => { return a.start.dateTime.valueOf() - b.start.dateTime.valueOf(); });
 
 		min_start = Math.floor(min_start / 60) * 60;
 		max_end = Math.ceil(max_end / 60) * 60;
 
-		return [{min_start, max_end}, weekday_contents];
+		return [{min_start, max_end}, shown_days];
 	},
 	render: function() {
 		var [layout_info, weekdays] = this.renderWeekdays(this.props.events);
@@ -229,10 +235,13 @@ export var VisualVersion = React.createClass({
 			<section id="visual-version">
 				<div ref="weekdays" id="weekdays">
 					<VisualVersion.HourBar layout_info={layout_info} />
-					{weekdays.map((contents, i) => {
+					{weekdays.map((day, i) => {
 						return <div className={"weekday" + ((i == cur_weekday) ? ' current' : '')}>
-							<h2>{WEEKDAY_NAMES[i]}</h2>
-							{contents.map((event) => {
+							<hgroup>
+								<h2>{WEEKDAY_NAMES[day.weekday]}</h2>
+								<h3>{day.date}</h3>
+							</hgroup>
+							{day.events.map((event) => {
 								return <Event layout_info={layout_info} {...event} />
 							})}
 							{(i == cur_weekday) ? <VisualVersion.NowLine layout_info={layout_info} /> : ''}
@@ -246,11 +255,16 @@ export var VisualVersion = React.createClass({
 		var li = this.last_layout_info;
 		var weekdays = this.refs.weekdays;
 		if (li == null || weekdays == null) return;
+
 		weekdays = weekdays.getDOMNode();
 		var hourbar = weekdays.querySelector('#hourbar');
 
 		var width = weekdays.clientWidth;
 		var height = weekdays.clientHeight;
+
+		var renderKey = JSON.stringify(li) + '-' + height + '-' + width;
+		if (renderKey == this.renderKey) return;
+		this.renderKey = renderKey;
 
 		var buffer = document.createElement('canvas');
 		buffer.width = width;
@@ -264,7 +278,7 @@ export var VisualVersion = React.createClass({
 		var span = li.max_end - li.min_start;
 
 		for (var hm = li.min_start; hm <= li.max_end; hm += 60) {
-			var pos = Math.min(Math.floor(height * (hm - li.min_start) / span) + offset, height - S.HOUR_LINE.WIDTH / 2);
+			var pos = Math.min(Math.round(height * (hm - li.min_start) / span) + offset, height - S.HOUR_LINE.WIDTH / 2);
 
 			ctx.moveTo(left, pos);
 			ctx.lineTo(width, pos);
@@ -330,7 +344,7 @@ VisualVersion.HourBar = React.createClass({
 
 					var style = {top: 'calc(' + (pos * 100 + '%') + ' - .5em)'};
 
-					return <li style={style}>{text}</li>;
+					return <li style={style} key={text}>{text}</li>;
 				})}
 			</ol>
 		);
