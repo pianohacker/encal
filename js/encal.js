@@ -10,8 +10,8 @@ var App = React.createClass({
 	render: function() {
 		return (
 			<div id="app">
-				<calendar.TextVersion onEventsChanged={this.onEventsChanged} />
-				<calendar.VisualVersion events={this.state.events} />
+				<calendar.EventsInput onEventsChanged={this.onEventsChanged} />
+				<calendar.Display events={this.state.events} />
 			</div>
 		);
 	}

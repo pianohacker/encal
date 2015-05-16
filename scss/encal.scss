@@ -35,13 +35,24 @@ body, html {
 		text-align: center;
 	}
 
-	textarea {
+	.CodeMirror {
 		background: #FAFAFA;
 		border: 1px solid #DDD;
+		box-sizing: content-box;
 		padding: .5em;
 		flex-grow: 1;
 		font: inherit;
-		width: 100%;
+	}
+
+	#google-connect {
+		background: #E8E8E8;
+		line-height: 3em;
+		margin-top: .5em;
+		padding-left: .5em;
+
+		a {
+			color: black;
+		}
 	}
 }
 

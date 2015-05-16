@@ -1,3 +1,6 @@
+import config from "config";
+import CodeMirror from "codemirror-compressed";
+
 function parsePart(event, part) {
 	part = part.replace(/^ *"?|"? *$/g, '');
 	if (!part || part == ',' || part == ';') return;
@@ -6,123 +9,200 @@ function parsePart(event, part) {
 
 	var match;
 	if (match = /^(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(part)) {
-		event.start = { dateTime: new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(match[1]), parseInt(match[2])) };
-		event.end = { dateTime: new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(match[3]), parseInt(match[4])) };
+		(event.start || (event.start = {})).dateTime = dTMod(event.start.dateTime || today, parseInt(match[1]), 'hours', parseInt(match[2]), 'minutes');
+		(event.end || (event.end = {})).dateTime = dTMod(event.end.dateTime || today, parseInt(match[3]), 'hours', parseInt(match[4]), 'minutes');
+	} else if (match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(part)) {
+		(event.start || (event.start = {})).dateTime = dTMod(event.start.dateTime || today, parseInt(match[1]), 'fullYear', parseInt(match[2]) - 1, 'month', parseInt(match[3]), 'date');
+		(event.end || (event.end = {})).dateTime = dTMod(event.end.dateTime || today, parseInt(match[1]), 'fullYear', parseInt(match[2]) - 1, 'month', parseInt(match[3]), 'date');
 	} else {
-		event.extraParts = event.extraParts || [];
 		event.extraParts.push(part);
 	}
 }
 
-function parseEvent(text) {
-	var event = {};
+function parseEvent(event, text) {
+	event.extraParts = [];
 
 	for (var part of text.split(/("[^"]+"|,)/)) parsePart(event, part);
 
 	if (event.extraParts) {
-		event.title = event.extraParts.join(', ');
+		event.summary = event.extraParts.join(', ');
 	}
 
-	return (event.start ? event : null);
+	return event;
 }
 
-export var TextVersion = React.createClass({
+function createEvent(event) {
+	return {summary: '', id: 'local-' + (new Date()).valueOf() + '-' + Math.floor(Math.random() * 1e12)};
+}
+
+function renderEvent(event) {
+	return event.summary;
+}
+
+export var EventsInput = React.createClass({
 	componentDidMount: function() {
-		var contents = localStorage['event_text'] || '';
-		this.parse(contents);
+		this.editor = CodeMirror((elt) => {
+			var editor_point = this.refs.editor_point.getDOMNode();
+			editor_point.parentNode.replaceChild(elt, editor_point);
+		}, {
+		});
+
+		this.local_events = localStorage.local_events ? JSON.parse(localStorage.local_events) : [createEvent()];
+		this.editor.setValue(this.local_events.map(renderEvent).join("\n"));
+		this.editor.on('changes', this.onChanges);
 	},
-	getInitialState: function() {
-		var contents = localStorage['event_text'] || '';
-		return {value: contents};
+	onChanges: function(cm, changes) {
+		if (changes.length != 1) {
+			// Possible notes for future expansion; use lineChanges to correct future changes
+			alert('Long changes array!');
+			console.error(changes);
+			return;
+		}
+
+		var change = changes[0];
+
+		var origin = change.from.line;
+		var newTo = CodeMirror.changeEnd(change);
+		var delta = newTo.line - change.to.line;
+
+		var lineChanges = [];
+		
+		var line = origin;
+		if (change.removed[0] || change.text[0]) lineChanges.push({line, kind: 'changed'});
+		line++;
+
+		for (var delLine = line; delLine <= change.to.line; delLine++) {
+			lineChanges.push({line: delLine, kind: 'deleted'});
+		}
+
+		for (var addLine = line; addLine <= newTo.line; addLine++) {
+			lineChanges.push({line: addLine, kind: 'added'});
+		}
+
+		this.onLineChanges(lineChanges);
+	},
+	onLineChanges: function(lineChanges) {
+		for (var lineChange of lineChanges) {
+			switch (lineChange.kind) {
+				case 'changed':
+					this.local_events[lineChange.line] = parseEvent(this.local_events[lineChange.line], this.editor.getLine(lineChange.line));
+					break;
+				case 'deleted':
+					this.local_events.splice(lineChange.line, 1);
+					break;
+				case 'added':
+					this.local_events.splice(lineChange.line, 0, parseEvent(createEvent(), this.editor.getLine(lineChange.line)));
+					break;
+			}
+		}
+
+		this.onLocalEventsChanged();
+		this.startSaveTimeout();
 	},
 	startSaveTimeout: function(event_text) {
 		if (this.saveTimeout != null) clearTimeout(this.saveTimeout);
 
 		this.saveTimeout = setTimeout(() => {
-			localStorage['event_text'] = event_text;
+			localStorage['local_events'] = JSON.stringify(this.local_events);
 		}, 100);
-	},
-	parse: function(text, pos) {
-		var cur_line = 0;
-		var lines = text.split('\n');
-		var count = 0;
-		var prev_lines = this.prev_lines || {};
-
-		if (pos == null) {
-			cur_line = -1;
-		} else {
-			while (count + lines[cur_line].length + 1 <= pos) {
-				count += lines[cur_line].length + 1;
-				cur_line++;
-			}
-
-			var column = pos - count;
-		}
-
-		var events = [];
-
-		var textChanged = false;
-		var eventsChanged = false;
-		for (var line = 0; line < lines.length; line++) {
-			var contents = lines[line];
-
-			var parsed = parseEvent(contents);
-			if (parsed) events.push(parsed);
-
-			if (contents == prev_lines[line]) {
-				continue;
-			} else {
-				eventsChanged = true;
-			}
-
-			if (line == cur_line) continue;
-
-			if (contents && false) {
-				textChanged = true;
-				lines[line] = `#${line} ${contents}`;
-			}
-		}
-
-		if (eventsChanged) {
-			this.props.onEventsChanged(events);
-		}
-
-		this.prev_lines = lines;
-
-		if (textChanged) {
-			var new_value =  lines.join('\n');
-			lines[cur_line] = undefined;
-			
-			return new_value;
-		} else {
-			return null;
-		}
-	},
-	onChange: function() {
-		var textarea = this.refs.textarea.getDOMNode();
-		var new_value = this.parse(textarea.value, textarea.selectionStart);
-
-		if (new_value) {
-			this.setState({value: new_value}, function() {
-				var new_pos = 0;
-				// TODO: implement cursor restoration
-			});
-		} else {
-			this.setState({value: textarea.value});
-		}
-
-		this.startSaveTimeout(new_value || textarea.value);
 	},
 	onKeyUp: function() {
 		this.onChange();
+	},
+	onEventsChanged: function() {
+		this.props.onEventsChanged((this.local_events || []).concat(this.google_events || []));
+	},
+	onLocalEventsChanged: function() {
+		this.onEventsChanged();
+	},
+	onGoogleEventsChanged: function(events) {
+		this.google_events = events;
+		this.onEventsChanged();
 	},
 	render: function() {
 		return (
 			<section id="text-version">
 				<h1>encal</h1>
-				<textarea ref="textarea" value={this.state.value} onChange={this.onChange} onKeyUp={this.onKeyUp} placeholder="Enter events here..." />
+				<div id="editor-point" ref="editor_point" />
+				<EventsInput.GoogleConnect onEventsChanged={this.onGoogleEventsChanged} />
 			</section>
 		);
+	},
+});
+
+EventsInput.GoogleConnect = React.createClass({
+	getInitialState: function() {
+		return {authenticated: null, events: JSON.parse(localStorage['google_events'] || '[]')};
+	},
+	componentWillMount: function() {
+		gapi.load('auth', this.authLoaded);
+	},
+	render: function() {
+		var contents;
+
+		if (this.state.authenticated == null) {
+			contents = "Contacting Google...";
+		} else if (this.state.authenticated) {
+			contents = "Connected to Google";
+		} else {
+			contents = <a href="#" onClick={this.onConnectClick}>Connect to Google</a>;
+		}
+
+		return (
+			<div id="google-connect">
+				{contents}
+			</div>
+		);
+	},
+
+	calendarLoaded: function() {
+		var now = new Date();
+		var cur_weekday = now.getDay();
+		var start = dTAdd(now, -cur_weekday, 'date');
+		start.setHours(0, 0, 0, 0);
+		var end = dTAdd(start, 7, 'date');
+		console.log(start, end);
+
+		gapi.client.calendar.events.list({
+			calendarId: 'primary',
+			singleEvents: true,
+			timeMin: start.toJSON(),
+			timeMax: end.toJSON(),
+		}).execute((result) => {
+			this.props.onEventsChanged(result.items.filter((event) => {
+				return !!event.start.dateTime;
+			}).map((event) => {
+				event.start.dateTime = new Date(event.start.dateTime);
+				event.end.dateTime = new Date(event.end.dateTime);
+
+				return event;
+			}));
+		});
+	},
+
+	checkAuthRequest: function(result) {
+		this.setState({authenticated: result && !result.error});
+
+		if (this.state.authenticated) {
+			gapi.client.load('calendar', 'v3', this.calendarLoaded);
+		}
+	},
+
+	onConnectClick: function() {
+		gapi.auth.authorize({
+			client_id: config.GOOGLE_CLIENT_ID,
+			scope: "https://www.googleapis.com/auth/calendar",
+			immediate: false
+		}, this.checkAuthRequest);
+	},
+
+	authLoaded: function() {
+		gapi.client.setApiKey(config.GOOGLE_API_KEY);
+		gapi.auth.authorize({
+			client_id: config.GOOGLE_CLIENT_ID,
+			scope: "https://www.googleapis.com/auth/calendar",
+			immediate: true
+		}, this.checkAuthRequest);
 	},
 });
 
@@ -157,13 +237,14 @@ function dTAdd(dateTime, amount, unit) {
 }
 
 function dTMod(dateTime, value, unit) {
+	if (value == null) return dateTime;
 	var d = new Date(dateTime.valueOf());
 
 	unit = unit[0].toUpperCase() + unit.substr(1);
 
 	d['set' + unit](value);
 
-	return d;
+	return dTMod.apply(this, [d].concat([].slice.call(arguments, 3)));
 }
 
 var Event = React.createClass({
@@ -174,7 +255,7 @@ var Event = React.createClass({
 
 		var style = {top: ((hmFromDT(p.start.dateTime) - li.min_start) * 100 / span) + '%', height: ((hmFromDT(p.end.dateTime) - hmFromDT(p.start.dateTime)) * 100 / span) + '%'};
 
-		return <div className="event" style={style}>{this.props.title || ''}</div>;
+		return <div className="event" style={style}>{this.props.summary || ''}</div>;
 	}
 });
 
@@ -186,8 +267,11 @@ const S = {
 	}
 };
 
-export var VisualVersion = React.createClass({
+export var Display = React.createClass({
 	renderWeekdays: function(events) {
+		events = events.filter((event) => {
+			return !!(event.start && event.start.dateTime);
+		});
 		var now = new Date();
 		var cur_wday = now.getDay();
 		
@@ -234,7 +318,7 @@ export var VisualVersion = React.createClass({
 		return (
 			<section id="visual-version">
 				<div ref="weekdays" id="weekdays">
-					<VisualVersion.HourBar layout_info={layout_info} />
+					<Display.HourBar layout_info={layout_info} />
 					{weekdays.map((day, i) => {
 						return <div className={"weekday" + ((i == cur_weekday) ? ' current' : '')}>
 							<hgroup>
@@ -244,7 +328,7 @@ export var VisualVersion = React.createClass({
 							{day.events.map((event) => {
 								return <Event layout_info={layout_info} {...event} />
 							})}
-							{(i == cur_weekday) ? <VisualVersion.NowLine layout_info={layout_info} /> : ''}
+							{(i == cur_weekday) ? <Display.NowLine layout_info={layout_info} /> : ''}
 						</div>
 					})}
 				</div>
@@ -298,7 +382,7 @@ export var VisualVersion = React.createClass({
 	},
 });
 
-VisualVersion.NowLine = React.createClass({
+Display.NowLine = React.createClass({
 	getInitialState: function() {
 		return {hm: hmFromDT(new Date())};
 	},
@@ -325,7 +409,7 @@ VisualVersion.NowLine = React.createClass({
 	},
 });
 
-VisualVersion.HourBar = React.createClass({
+Display.HourBar = React.createClass({
 	render: function() {
 		var p = this.props;
 		var li = p.layout_info;
